@@ -1,3 +1,14 @@
+package src.dto.sources.source1;
+
+import lombok.*;
+
+import java.sql.Date;
+
+@Setter
+@Getter
+@AllArgsConstructor
+@RequiredArgsConstructor
+@NoArgsConstructor
 public class CraftMarketWide {
     public Long id;
     public Long craftsmanId;
@@ -19,6 +30,4 @@ public class CraftMarketWide {
     public String customerAddress;
     public Date customerBirthday;
     public String customerEmail;
-
-    // Конструкторы, геттеры, сеттеры
 }
