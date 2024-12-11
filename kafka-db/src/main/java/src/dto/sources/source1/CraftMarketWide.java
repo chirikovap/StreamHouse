@@ -1,33 +1,32 @@
 package src.dto.sources.source1;
 
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.sql.Date;
+import java.io.Serializable;
+import java.time.LocalDate;
 
-@Setter
 @Getter
-@AllArgsConstructor
-@RequiredArgsConstructor
-@NoArgsConstructor
-public class CraftMarketWide {
-    public Long id;
-    public Long craftsmanId;
-    public String craftsmanName;
-    public String craftsmanAddress;
-    public Date craftsmanBirthday;
-    public String craftsmanEmail;
-    public Long productId;
-    public String productName;
-    public String productDescription;
-    public String productType;
-    public Integer productPrice;
-    public Long orderId;
-    public Date orderCreatedDate;
-    public Date orderCompletionDate;
-    public String orderStatus;
-    public Long customerId;
-    public String customerName;
-    public String customerAddress;
-    public Date customerBirthday;
-    public String customerEmail;
+@Setter
+public class CraftMarketWide implements Serializable {
+    private Long id; // идентификатор записи
+    private Long craftsmanId; // идентификатор мастера
+    private String craftsmanName; // ФИО мастера
+    private String craftsmanAddress; // адрес мастера
+    private LocalDate craftsmanBirthday; // дата рождения мастера
+    private String craftsmanEmail; // электронная почта мастера
+    private Long productId; // идентификатор товара ручной работы
+    private String productName; // название товара ручной работы
+    private String productDescription; // описание товара ручной работы
+    private String productType; // тип товара ручной работы
+    private Long productPrice; // цена товара ручной работы
+    private Long orderId; // идентификатор заказа
+    private LocalDate orderCreatedDate; // дата создания заказа
+    private LocalDate orderCompletionDate; // дата выполнения заказа
+    private String orderStatus; // статус выполнения заказа (created, in progress, delivery, done)
+    private Long customerId; // идентификатор заказчика
+    private String customerName; // ФИО заказчика
+    private String customerAddress; // адрес заказчика
+    private LocalDate customerBirthday; // дата рождения заказчика
+    private String customerEmail; // электронная почта заказчика
 }
