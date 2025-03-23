@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: kafka-db
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://db:5432/sources_table
+    username: postgres
+    password: "123456"
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect

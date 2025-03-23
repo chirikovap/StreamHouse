@@ -1,0 +1,44 @@
+server:
+  port: 8182
+
+logstash.host: localhost
+logstash.port: 10000
+logger.console.tresholdFilter: ALL
+logger.socket.tresholdFilter: OFF
+
+spring:
+  application:
+    name: kafka-db
+  kafka:
+    consumer:
+      consumer2:
+        group-id: group2
+        bootstrap-servers: kafka:9092
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      consumer1:
+        group-id: group1
+        bootstrap-servers: kafka:9092
+    producer:
+      bootstrap-servers: kafka:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    listeners:
+      log-container-config: true
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://db:5432/sources_table
+    username: postgres
+    password: "123456"
+  debezium:
+    source:
+      connector-class: io.debezium.connector.postgresql.PostgresConnector
+      database-hostname: db:5432
+      database-port: 5432
+      database-user: postgres
+      database-password: 123456
+      database-dbname: sources_table
+      table-whitelist: public.sources_table
+      database-history-kafka-bootstrap-servers:
+        kafka: 9092
+      database-history-kafka-topic: dbserver1.public.sources_table

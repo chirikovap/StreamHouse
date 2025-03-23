@@ -1,6 +1,7 @@
 services:
-
-  # PostgreSQL database
+  ##################################################################
+  # PostgreSQL
+  ##################################################################
   db:
     image: postgres:12
     restart: always
@@ -13,25 +14,29 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./init2.sql:/docker-entrypoint-init2db.d/init2.sql
-      - ./init3.sql:/docker-entrypoint-ini3tdb.d/init3.sql
+      - ./init2.sql:/docker-entrypoint-initdb.d/init2.sql
+      - ./init3.sql:/docker-entrypoint-initdb.d/init3.sql
+      - ./init4.sql:/docker-entrypoint-initdb.d/init4.sql
+    networks:
+      - flinknet
 
-  # DBeaver with VNC
+  ##################################################################
+  # DBeaver CloudBeaver, PGAdmin и др.
+  ##################################################################
   dbeaver:
     image: dbeaver/cloudbeaver:latest
     restart: always
     ports:
-      - "8082:8978" # порт веб-интерфейса CloudBeaver
+      - "8082:8978"
     environment:
       CB_DB_DRIVER: postgresql
     depends_on:
       - db
-    volumes:
-      - dbeaver_data:/opt/dbeaver/data # опционально для сохранения конфигурации
+    networks:
+      - flinknet
 
-  # pgAdmin for database management
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:latest
     restart: always
     ports:
       - "8081:80"
@@ -40,62 +45,81 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin
     depends_on:
       - db
+    networks:
+      - flinknet
 
+  ##################################################################
+  # Zookeeper и Kafka
+  ##################################################################
   zookeeper:
-    image: bitnami/zookeeper:3.8
+    image: bitnami/zookeeper:latest
     restart: always
     ports:
       - "2181:2181"
     environment:
-      ZOO_MY_ID: 1
-      ZOO_PORT: 2181
-      ZOO_SERVERS: server.1=zookeeper:2888:3888
+      ZOOKEEPER_CLIENT_PORT: 2181
       ALLOW_ANONYMOUS_LOGIN: "yes"
+    networks:
+      - flinknet
 
   kafka:
     image: bitnami/kafka:latest
-    restart: on-failure
+    restart: always
     ports:
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      ALLOW_PLAINTEXT_LISTENER: "yes"
-      KAFKA_MESSAGE_MAX_BYTES: 2000000000
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 2000000000
-      KAFKA_FETCH_MAX_BYTES: 2000000000
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
+    networks:
+      - flinknet
 
   kafka-connect:
-    image: debezium/connect:1.9
+    image: confluentinc/cp-kafka-connect-base:7.4.1
     ports:
       - "8083:8083"
     environment:
-      BOOTSTRAP_SERVERS: kafka:9092
-      GROUP_ID: 1
-      CONFIG_STORAGE_TOPIC: debezium-connect-configs
-      OFFSET_STORAGE_TOPIC: debezium-connect-offsets
-      STATUS_STORAGE_TOPIC: debezium-connect-status
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: 1
+      CONNECT_CONFIG_STORAGE_TOPIC: debezium-connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: debezium-connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: debezium-connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
-      CONNECT_PLUGIN_PATH: /kafka/connect
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
       TABLES: "public.craft_market_wide,public.craft_market_masters_products,public.craft_market_orders_customers,public.craft_market_craftsmans,public.craft_market_customers,public.craft_market_orders"
     depends_on:
       - kafka
+    volumes:
+      - ./plugins:/usr/share/confluent-hub-components
+    command: >
+      bash -c "confluent-hub install --no-prompt debezium/debezium-connector-postgresql:latest && /etc/confluent/docker/run"
+    networks:
+      - flinknet
 
   kafdrop:
     image: obsidiandynamics/kafdrop:latest
     ports:
-      - "9000:9000"
+      - "9002:9000"
     environment:
       KAFKA_BROKERCONNECT: "kafka:9092"
+    depends_on:
+      - kafka
+    networks:
+      - flinknet
 
+  ##################################################################
+  # Приложение
+  ##################################################################
   app:
     build:
       context: .
@@ -111,49 +135,233 @@ services:
       SPRING_DATASOURCE_PASSWORD: 123456
       KAFKA_BROKER: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - flinknet
 
-  # Trino for querying Iceberg data
-  trino:
-    image: trinodb/trino:latest
-    ports:
-      - "8080:8080"
-    environment:
-      TRINO_CORES: 2
-      TRINO_MEMORY: 2GB
-    depends_on:
-      - kafka
-    volumes:
-      - trino_data:/data
+  #  ##################################################################
+  #  # Superset
+  #  ##################################################################
+  #  superset:
+  #    image: apache/superset:latest
+  #    ports:
+  #      - "8088:8088"
+  #    environment:
+  #      SUPERSET_SECRET_KEY: "mysecretkey"
+  #      FLASK_APP: "superset"
+  #    command: >
+  #      bash -c "superset db upgrade && superset init &&
+  #               gunicorn --bind 0.0.0.0:8088 'superset.app:create_app()'"
+  #    depends_on:
+  #      - db
+  #    networks:
+  #      - flinknet
 
-  superset:
-    image: apache/superset:latest
-    ports:
-      - "8088:8088"
-    environment:
-      SUPERSET_SECRET_KEY: 'mysecretkey'
-      FLASK_APP: superset
-    command: ["bash", "-c", "superset db upgrade && superset init && gunicorn --bind 0.0.0.0:8088 'superset.app:create_app()'"]
-    volumes:
-      - superset_data:/var/lib/superset
-
+  ##################################################################
+  # Flink
+  ##################################################################
   flink-jobmanager:
-    image: apache/flink:latest
+    image: apache/flink:java17
+    hostname: flink-jobmanager
     command: jobmanager
-    environment:
-      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
     ports:
-      - "8085:8085"  # Интерфейс Flink
+      - "6123:6123"
+      - "8086:8081"
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      JAVA_TOOL_OPTIONS: "-Dakka.remote.netty.tcp.maximum-frame-size=2g"
+      FLINK_PROPERTIES: |
+        pipeline.classpaths: file:///opt/flink/extra-lib/*
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 2048m
+        taskmanager.memory.process.size: 2048m
+        taskmanager.numberOfTaskSlots: 4
+        high-availability.type: none
+        akka.remote.netty.tcp.maximum-frame-size: 2g
+        rest.server.max-content-length: 2147483647
+        rest.client.max-content-length: 2147483647
+        blob.server.port: 6124
+        query.server.port: 6125
+        # Параметры для Iceberg через Hive‑метастор:
+        catalog-type: hive
+        catalog-name: iceberg
+        catalog-database: dwh
+        hive.metastore.uris: thrift://hive-metastore:9083
+        iceberg.catalog.hive.warehouse: s3a://craftmarket/warehouse
+        # Параметры для доступа к S3 (MinIO):
+        fs.s3a.endpoint: http://minio:9000
+        fs.s3a.access.key: minioadmin
+        fs.s3a.secret.key: minioadmin
+        fs.s3a.path.style.access: true
+    volumes:
+      - ./target:/opt/flink/usrlib
+      - ./flink-iceberg-jars:/opt/flink/extra-lib
+    depends_on:
+      - minio
+    networks:
+      flinknet:
+        aliases:
+          - flink-jobmanager
 
   flink-taskmanager:
-    image: apache/flink:latest
+    image: apache/flink:java17
+    platform: linux/amd64
     command: taskmanager
-    environment:
-      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=2
     depends_on:
-      - flink-jobmanager  # TaskManager запускается после JobManager
+      - flink-jobmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: "flink-jobmanager"
+      JAVA_TOOL_OPTIONS: "-Dakka.remote.netty.tcp.maximum-frame-size=2g"
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 2048m
+        taskmanager.memory.process.size: 2048m
+        taskmanager.numberOfTaskSlots: 4
+        high-availability.type: none
+        akka.remote.netty.tcp.maximum-frame-size: 2g
+        rest.server.max-content-length: 2147483647
+        rest.client.max-content-length: 2147483647
+        blob.server.port: 6124
+        query.server.port: 6125
+        catalog-type: hive
+        catalog-name: iceberg
+        catalog-database: dwh
+        hive.metastore.uris: thrift://hive-metastore:9083
+        iceberg.catalog.hive.warehouse: s3a://craftmarket
+        fs.s3a.endpoint: http://minio:9000
+        fs.s3a.access.key: minioadmin
+        fs.s3a.secret.key: minioadmin
+        fs.s3a.path.style.access: true
+    networks:
+      flinknet:
+        aliases:
+          - flink-taskmanager
+
+  ##################################################################
+  # MinIO (S3)
+  ##################################################################
+  minio:
+    image: minio/minio
+    restart: always
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Web Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - flinknet
+
+  mc:
+    depends_on:
+      - minio
+    image: minio/mc
+    container_name: mc
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+      - FS_S3A_PATH_STYLE_ACCESS=true
+    entrypoint: |
+      /bin/sh -c "
+      until (/usr/bin/mc config host add minio http://minio:9000 minioadmin minioadmin) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc rm -r --force minio/craftmarket;
+      /usr/bin/mc mb minio/craftmarket;
+      /usr/bin/mc policy set public minio/craftmarket;
+      tail -f /dev/null
+      "
+    networks:
+      - flinknet
+
+  ##################################################################
+  # Сервисы для интеграции Iceberg
+  ##################################################################
+  rest:
+    image: apache/iceberg-rest-fixture
+    container_name: iceberg-rest
+    ports:
+      - "8181:8181"
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+      - CATALOG_WAREHOUSE=s3a://craftmarket
+      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+      - CATALOG_S3_ENDPOINT=http://minio:9000
+    networks:
+      - flinknet
+
+  spark-iceberg:
+    image: tabulario/spark-iceberg
+    container_name: spark-iceberg
+    #    build: spark/
+    depends_on:
+      - rest
+      - minio
+    volumes:
+      - ./warehouse:/home/iceberg/craftmarket
+      - ./notebooks:/home/iceberg/notebooks/notebooks
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+      - FS_S3A_PATH_STYLE_ACCESS=true
+      - AWS_ENDPOINT_URL=http://minio:9000
+    ports:
+      - "7878:7878"
+      - "8080:8080"
+      - "10000:10000"
+      - "10001:10001"
+    networks:
+      - flinknet
+
+  csv-processor:
+    build:
+      context: ./csv-processor
+      dockerfile: Dockerfile
+    ports:
+      - "8183:8183"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/sources_table
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123456
+      KAFKA_BROKER: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - flinknet
+
+  api-processor:
+    build:
+      context: ./api-processor
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/sources_table
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123456
+      KAFKA_BROKER: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - flinknet
+
+#  file-uploader:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile-s3
+#    depends_on:
+#      - minio
+#    ports:
+#      - "8188:8188"
+#    networks:
+#      - flinknet
+
+networks:
+  flinknet:
 
 volumes:
+  minio_data:
   postgres_data:
   dbeaver_data:
-  trino_data:
   superset_data:
+  iceberg_warehouse:

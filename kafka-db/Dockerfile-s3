@@ -1,0 +1,8 @@
+FROM docker.io/eclipse-temurin:17.0.7_7-jre
+
+WORKDIR /app
+
+COPY target/fileUploader-jar-with-dependencies.jar /app/fileUploader-jar-with-dependencies.jar
+COPY minio-8.5.17.jar /app/minio-8.5.17.jar
+
+ENTRYPOINT ["java", "-cp", "fileUploader-jar-with-dependencies.jar:minio-8.5.17.jar", "src.bdCreator.FileUploader"]

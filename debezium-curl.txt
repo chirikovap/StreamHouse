@@ -1,31 +1,35 @@
-Invoke-RestMethod -Uri "http://localhost:8083/connectors" -Method Post -Headers @{
-    "Content-Type" = "application/json"
-} -Body '{
-     "name": "postgres-connector",
-     "config": {
-         "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-         "database.hostname": "db",
-         "database.port": "5432",
-         "database.user": "postgres",
-         "database.password": "123456",
-         "database.dbname": "sources_table",
-         "database.server.name": "dbserver1",
-         "table.include.list": "source1.craft_market_wide,source2.craft_market_masters_products,source2.craft_market_orders_customers,source3.craft_market_craftsmans,source3.craft_market_customers,source3.craft_market_orders",
-         "plugin.name": "pgoutput",
-         "database.history.kafka.bootstrap.servers": "kafka:9092",
-         "database.history.kafka.topic": "schema-changes.sources_table",
-         "transforms": "unwrap",
-         "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-         "transforms.unwrap.drop.tombstones": "false",
-         "transforms.unwrap.delete.handling.mode": "rewrite",
-         "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-         "value.converter.schemas.enable": "false",
-         "key.converter": "org.apache.kafka.connect.json.JsonConverter",
-         "key.converter.schemas.enable": "false"
-     }
- }'
+curl -X POST "http://localhost:8083/connectors" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "name": "postgres-connector",
+           "config": {
+               "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+               "database.hostname": "db",
+               "database.port": "5432",
+               "database.user": "postgres",
+               "database.password": "123456",
+               "database.dbname": "sources_table",
+               "database.server.name": "dbserver1",
+               "table.include.list": "source1.craft_market_wide,source2.craft_market_masters_products,source2.craft_market_orders_customers,source3.craft_market_craftsmans,source3.craft_market_customers,source3.craft_market_orders",
+               "plugin.name": "pgoutput",
+               "database.history.kafka.bootstrap.servers": "kafka:9092",
+               "database.history.kafka.topic": "schema-changes.sources_table",
+               "transforms": "unwrap",
+               "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+               "transforms.unwrap.drop.tombstones": "false",
+               "transforms.unwrap.delete.handling.mode": "rewrite",
+               "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+               "value.converter.schemas.enable": "false",
+               "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+               "key.converter.schemas.enable": "false",
+               "topic.prefix": "sources_table"
+         }
+     }'
 
-Invoke-RestMethod -Uri "http://localhost:8083/connectors/postgres-connector" -Method Delete
+
+
+curl -X DELETE "http://localhost:8083/connectors/postgres-connector"
+
 
 
 
