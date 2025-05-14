@@ -10,10 +10,12 @@
 - kafka-db/api-processor/ реализация API, которое считаывает CSV файл, парсит и отправляет в kafka топик
 - kafka-db/csv-processor/ реализация API, которое по scheduller считывает новый CSV файл, парсит и отправляет в kafka топик
 
+
 - kafka-db/src/main/java/src/jobs/UpsertCraftsmanJob.java
 - kafka-db/src/main/java/src/jobs/UpsertCustomersJob.java
 - kafka-db/src/main/java/src/jobs/UpsertOrdersFactJob.java
 - kafka-db/src/main/java/src/jobs/UpsertProductsJob.java - Flink jobs, которые обрабатывают в real time данные из kafka топиков по заказчикам, продавцам, товарам и заказам
+
 
 - kafka-db/src/main/java/src/services/RunnerService.java - сервис для запуска IcebergCreator (который в свою очередь создаст таблицы в S3 хранилища, где потом будут храниться parquet файлы в табличном формате
 - kafka-db/src/main/java/src/bdCreator/IcebergTableCreator.java - создатель iceberg таблиц в minio S3
