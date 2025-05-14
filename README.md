@@ -76,6 +76,39 @@ FLINK:
 - kafka-db/src/main/java/src/jobs/UpsertCustomersJob.java
 - kafka-db/src/main/java/src/jobs/UpsertOrdersFactJob.java
 - kafka-db/src/main/java/src/jobs/UpsertProductsJob.java - Flink jobs, которые обрабатывают в real time данные из kafka топиков по заказчикам, продавцам, товарам и заказам
+Настройка kafkaSource, указываем из каких топиков считываем данные:
+```
+  KafkaSource<KafkaMessage> kafkaSource = KafkaSource.<KafkaMessage>builder()
+          .setBootstrapServers("kafka:9092")
+          .setTopics("sources_table.source1.craft_market_wide", "sources_table.source3.craft_market_craftsmans", "sources_table.source2.craft_market_masters_products")
+          .setGroupId("upsert-craftsmans-group")
+          .setStartingOffsets(OffsetsInitializer.earliest())
+          .setDeserializer(new MyKafkaDeserializationSchema())
+          .build();
+```
+Настройка конфигураций S3 хранилища, куда будем выгружать обработанные данные:
+```
+        Configuration hadoopConf = new Configuration();
+        hadoopConf.set("fs.s3a.access.key", "minioadmin");
+        hadoopConf.set("fs.s3a.secret.key", "minioadmin");
+        hadoopConf.set("fs.s3a.endpoint", "http://minio:9000");
+        hadoopConf.set("fs.s3a.path.style.access", "true");
+        hadoopConf.set("fs.s3a.region", "us-east-1");
+```
+Конвертер объектов kafka в объекты для табличного формата Iceberg (в данном случае делим большой объект самой общей таблицы БД на много маленьких, в данном случае вытаскиваем данные о Craftsman)
+```
+    private static CraftsmanDTO convertWideToCraftsmanDTO(CraftMarketWide wide) {
+        logger.info("Converting CraftMarketWide to CraftsmanDTO: {}", wide);
+        CraftsmanDTO dto = new CraftsmanDTO();
+        dto.setCraftsmanId(wide.getCraftsmanId());
+        dto.setCraftsmanName(wide.getCraftsmanName());
+        dto.setCraftsmanAddress(wide.getCraftsmanAddress());
+        dto.setCraftsmanBirthday(parseDate(wide.getCraftsmanBirthday()));
+        dto.setCraftsmanEmail(wide.getCraftsmanEmail());
+        dto.setLoadDttm(java.time.LocalDateTime.now());
+        return dto;
+    }
+```
 
 ICEBERG:
 - kafka-db/src/main/java/src/services/RunnerService.java - сервис для запуска IcebergCreator (который в свою очередь создаст таблицы в S3 хранилища, где потом будут храниться parquet файлы в табличном формате
