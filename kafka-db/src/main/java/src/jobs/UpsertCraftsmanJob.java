@@ -80,10 +80,8 @@ public class UpsertCraftsmanJob {
                     return convertMastersProductsToCraftsmanDTO(p);
                 });
 
-// Объединяем потоки — они теперь действительно работают параллельно
         DataStream<CraftsmanDTO> craftsmansUnion = streamWide.union(streamCraftsmans, streamMastersProducts);
 
-// Дедупликация по содержимому (не по ID)
         DataStream<CraftsmanDTO> deduplicatedStream = craftsmansUnion
                 .keyBy(CraftsmanDTO::getDeduplicationKey)
                 .process(new DeduplicationFunction());
