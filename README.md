@@ -75,7 +75,7 @@ FLINK:
 - kafka-db/src/main/java/src/jobs/UpsertOrdersFactJob.java
 - kafka-db/src/main/java/src/jobs/UpsertProductsJob.java - Flink jobs, которые обрабатывают в real time данные из kafka топиков по заказчикам, продавцам, товарам и заказам
 
-ICEBERG
+ICEBERG:
 - kafka-db/src/main/java/src/services/RunnerService.java - сервис для запуска IcebergCreator (который в свою очередь создаст таблицы в S3 хранилища, где потом будут храниться parquet файлы в табличном формате
 - kafka-db/src/main/java/src/bdCreator/IcebergTableCreator.java - создатель iceberg таблиц в minio S3
 Пример для создания таблицы Customers в Iceberg:
